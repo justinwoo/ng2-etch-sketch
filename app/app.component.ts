@@ -90,6 +90,7 @@ export class AppComponent {
           // TODO: fix incorrect Set constructor definition in es6-shim tsd?
           // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/for...of
           // Set is iterable and should be useable for the constructor?
+          // Looks like there's a PR for this already: https://github.com/DefinitelyTyped/DefinitelyTyped/pull/7905
           const points = (new Set(state.points.values())).add({x, y});
 
           switch (direction) {
