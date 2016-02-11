@@ -1,5 +1,5 @@
 import {Component} from 'angular2/core';
-import {Observable} from 'rxjs/Rx';
+import {Observable, Subject} from 'rxjs/Rx';
 
 import {BoardComponent} from './board.component';
 
@@ -28,7 +28,12 @@ export type Props = State & Config;
   template: `
   <div>
     <h1>babby's first ng2 app</h1>
-    <es-board [props]="props"></es-board>
+    <div>
+      <button class="clear-screen" (click)="clearScreen$.next()">Clear</button>
+    </div>
+    <div>
+      <es-board [props]="props"></es-board>
+    </div>
   </div>`,
   directives: [BoardComponent]
 })
@@ -66,6 +71,15 @@ export class AppComponent {
     [this.leftInputs, this.left],
     [this.rightInputs, this.right],
   ];
+
+  private clearScreen$ = new Subject();
+
+  private screenClear$: Observable<Project> =
+     this.clearScreen$.map(() => (state) => {
+       return Object.assign({}, state, {
+         points: []
+       });
+     });
 
   private keyDirection$ = Observable
     .fromEvent<KeyboardEvent>(window, 'keydown')
@@ -122,7 +136,8 @@ export class AppComponent {
 
   private state$: Observable<State> = Observable
     .merge(
-      this.moveCursor(this.keyDirection$)
+      this.moveCursor(this.keyDirection$),
+      this.screenClear$
     )
     .startWith(this.initState)
     .scan((state, project: Project) => project(state));

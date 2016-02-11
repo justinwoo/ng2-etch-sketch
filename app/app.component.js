@@ -51,6 +51,12 @@ System.register(['angular2/core', 'rxjs/Rx', './board.component'], function(expo
                         [this.leftInputs, this.left],
                         [this.rightInputs, this.right],
                     ];
+                    this.clearScreen$ = new Rx_1.Subject();
+                    this.screenClear$ = this.clearScreen$.map(function () { return function (state) {
+                        return Object.assign({}, state, {
+                            points: []
+                        });
+                    }; });
                     this.keyDirection$ = Rx_1.Observable
                         .fromEvent(window, 'keydown')
                         .map(function (_a) {
@@ -63,7 +69,7 @@ System.register(['angular2/core', 'rxjs/Rx', './board.component'], function(expo
                         }
                     });
                     this.state$ = Rx_1.Observable
-                        .merge(this.moveCursor(this.keyDirection$))
+                        .merge(this.moveCursor(this.keyDirection$), this.screenClear$)
                         .startWith(this.initState)
                         .scan(function (state, project) { return project(state); });
                     this.state$.subscribe(function (state) {
@@ -112,7 +118,7 @@ System.register(['angular2/core', 'rxjs/Rx', './board.component'], function(expo
                 AppComponent = __decorate([
                     core_1.Component({
                         selector: 'my-app',
-                        template: "\n  <div>\n    <h1>babby's first ng2 app</h1>\n    <es-board [props]=\"props\"></es-board>\n  </div>",
+                        template: "\n  <div>\n    <h1>babby's first ng2 app</h1>\n    <div>\n      <button class=\"clear-screen\" (click)=\"clearScreen$.next()\">Clear</button>\n    </div>\n    <div>\n      <es-board [props]=\"props\"></es-board>\n    </div>\n  </div>",
                         directives: [board_component_1.BoardComponent]
                     }), 
                     __metadata('design:paramtypes', [])
