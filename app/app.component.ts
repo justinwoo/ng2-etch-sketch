@@ -8,6 +8,8 @@ type Coords = {
   y: number
 }
 
+type Direction = 'up' | 'down' | 'left' | 'right';
+
 type Config = {
   width: number,
   height: number,
@@ -19,7 +21,58 @@ type State = {
   cursor: Coords
 }
 
-type Project = (State) => State;
+interface Action {
+  nextState(state: State): State;
+}
+
+class MoveCursorAction implements Action {
+  constructor(private direction: Direction, private config: Config) {
+  }
+
+  nextState(state: State) {
+    if (!this.direction) return state;
+
+    const {increment, width, height} = this.config;
+    let {x, y} = state.cursor;
+    // TODO: fix incorrect Set constructor definition in es6-shim tsd?
+    // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/for...of
+    // Set is iterable and should be useable for the constructor?
+    // Looks like there's a PR for this already: https://github.com/DefinitelyTyped/DefinitelyTyped/pull/7905
+    const points = (new Set(state.points.values())).add({x, y});
+
+    switch (this.direction) {
+      case 'up':
+        y--;
+        break;
+      case 'down':
+        y++;
+        break;
+      case 'left':
+        x--;
+        break;
+      case 'right':
+        x++;
+        break;
+    }
+
+    if (x < 0 || (increment * x) > (width - increment) || y < 0 || (increment * y) > (height - increment)) {
+      return state;
+    }
+
+    return Object.assign({}, state, {
+      points,
+      cursor: {x, y}
+    });
+  };
+}
+
+class ScreenClearAction implements Action {
+  nextState(state: State) {
+    return Object.assign({}, state, {
+      points: []
+    });
+  }
+}
 
 export type Props = State & Config;
 
@@ -60,26 +113,17 @@ export class AppComponent {
   private leftInputs = [37, 72];
   private rightInputs = [39, 76];
 
-  private up = 'up';
-  private down = 'down';
-  private left = 'left';
-  private right = 'right';
-
-  private mappings: [number[], string][] = [
-    [this.upInputs, this.up],
-    [this.downInputs, this.down],
-    [this.leftInputs, this.left],
-    [this.rightInputs, this.right],
+  private mappings: [number[], Direction][] = [
+    [this.upInputs, 'up'],
+    [this.downInputs, 'down'],
+    [this.leftInputs, 'left'],
+    [this.rightInputs, 'right'],
   ];
 
   private clearScreen$ = new Subject();
 
-  private screenClear$: Observable<Project> =
-     this.clearScreen$.map(() => (state) => {
-       return Object.assign({}, state, {
-         points: []
-       });
-     });
+  private screenClear$: Observable<Action> =
+     this.clearScreen$.map(() => new ScreenClearAction());
 
   private keyDirection$ = Observable
     .fromEvent<KeyboardEvent>(window, 'keydown')
@@ -93,45 +137,8 @@ export class AppComponent {
       }
     });
 
-  private moveCursor(keyboard$): Observable<Project> {
-    return keyboard$
-      .map((direction) =>
-        (state: State) => {
-          if (!direction) return state;
-
-          const {increment, width, height} = this.config;
-          let {x, y} = state.cursor;
-          // TODO: fix incorrect Set constructor definition in es6-shim tsd?
-          // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/for...of
-          // Set is iterable and should be useable for the constructor?
-          // Looks like there's a PR for this already: https://github.com/DefinitelyTyped/DefinitelyTyped/pull/7905
-          const points = (new Set(state.points.values())).add({x, y});
-
-          switch (direction) {
-            case this.up:
-              y--;
-              break;
-            case this.down:
-              y++;
-              break;
-            case this.left:
-              x--;
-              break;
-            case this.right:
-              x++;
-              break;
-          }
-
-          if (x < 0 || (increment * x) > (width - increment) ||
-            y < 0 || (increment * y) > (height - increment)) {
-            return state;
-          }
-
-          return Object.assign({}, state, {
-            points,
-            cursor: {x, y}
-          });
-        });
+  private moveCursor(keyboard$): Observable<Action> {
+    return keyboard$.map((direction) => new MoveCursorAction(direction, this.config));
   }
 
   private state$: Observable<State> = Observable
@@ -140,7 +147,7 @@ export class AppComponent {
       this.screenClear$
     )
     .startWith(this.initState)
-    .scan((state, project: Project) => project(state));
+    .scan((state, action: Action) => action.nextState(state));
 
   constructor() {
     this.state$.subscribe((state) => {
